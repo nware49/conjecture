@@ -1,0 +1,19 @@
+{
+  "name": "@conjecture/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Domain model for Conjecture: claims, the trust ladder, receipts, gaps and dependency graphs. Pure — no I/O.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  }
+}
