@@ -1,0 +1,22 @@
+{
+  "name": "@conjecture/lean",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Lean bridge: toolchain detection, elaboration over `lake env lean --json`, diagnostics and axiom parsing.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@conjecture/core": "1.0.0"
+  }
+}
