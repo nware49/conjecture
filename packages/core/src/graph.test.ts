@@ -16,11 +16,13 @@ const pin: Pin = {
 
 const receipt = (declaration: string): Receipt => ({
   engine: 'lean-process',
+  method: 'lean-kernel',
+  scope: null,
   declaration,
   pin,
   axioms: reportAxioms([...STANDARD_AXIOMS]),
   sorryCount: 0,
-  kernelAccepted: true,
+  accepted: true,
   elapsedMs: 400,
   heartbeats: null,
   verifiedAt: '2026-01-01T00:00:00.000Z',

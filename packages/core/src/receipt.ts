@@ -38,17 +38,40 @@ export function pinLabel(pin: Pin | null): string {
 }
 
 /**
- * What the kernel gave us, recorded. A proof without its receipt is treated as
- * unverified — that rule is enforced in {@link isProvedWithReceipt}.
+ * How a result was decided.
+ *
+ * Two authorities can fill a square, and they are never conflated. The Lean
+ * kernel type-checks a term and settles the claim as stated. Exhaustion decides
+ * a *bounded* claim by evaluating every point of a finite declared space in
+ * exact integer arithmetic — a real proof of the bounded statement, and no
+ * evidence at all about anything outside the bound. The interface always names
+ * which one it was, and exhaustion always carries its scope.
+ */
+export type VerificationMethod = 'lean-kernel' | 'exhaustion';
+
+export const METHOD_LABEL: Readonly<Record<VerificationMethod, string>> = {
+  'lean-kernel': 'kernel-checked',
+  exhaustion: 'decided by exhaustion',
+};
+
+/**
+ * What the deciding authority gave us, recorded. A proof without its receipt is
+ * treated as unverified — that rule is enforced in {@link isProvedWithReceipt}.
  */
 export interface Receipt {
-  /** Which engine produced this. `simulated` is never allowed to prove. */
-  readonly engine: 'lean-process' | 'lean-lsp';
+  readonly engine: 'lean-process' | 'lean-lsp' | 'exhaustive-search';
+  readonly method: VerificationMethod;
+  /**
+   * For exhaustion, exactly what was covered, e.g. "n ∈ [1, 100000] · 100,000
+   * candidates". Null for a kernel check, whose scope is the statement itself.
+   */
+  readonly scope: string | null;
   readonly declaration: string;
   readonly pin: Pin;
   readonly axioms: AxiomReport;
   readonly sorryCount: number;
-  readonly kernelAccepted: boolean;
+  /** The deciding authority accepted it: the kernel, or a completed exhaustion. */
+  readonly accepted: boolean;
   readonly elapsedMs: number;
   /** Lean's `maxHeartbeats` budget and how much of it the elaboration used. */
   readonly heartbeats: { readonly used: number; readonly budget: number } | null;
@@ -57,7 +80,7 @@ export interface Receipt {
 
 export function isProvedWithReceipt(receipt: Receipt | null | undefined): receipt is Receipt {
   if (!receipt) return false;
-  return receipt.kernelAccepted && receipt.sorryCount === 0 && !receipt.axioms.dependsOnSorry;
+  return receipt.accepted && receipt.sorryCount === 0 && !receipt.axioms.dependsOnSorry;
 }
 
 /**
@@ -67,6 +90,10 @@ export function isProvedWithReceipt(receipt: Receipt | null | undefined): receip
  */
 export function isReceiptCurrent(receipt: Receipt | null | undefined, pin: Pin | null): boolean {
   if (!receipt) return false;
+  // An exhaustion result is arithmetic over a finite space. It does not rest on
+  // Mathlib or on a toolchain, so a library bump cannot make it stale — and
+  // pretending otherwise would train people to ignore the stale marker.
+  if (receipt.method === 'exhaustion') return true;
   if (pin === null) return false;
   return pinsEqual(receipt.pin, pin);
 }

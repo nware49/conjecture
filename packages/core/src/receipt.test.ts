@@ -19,11 +19,13 @@ const pin: Pin = {
 
 const receipt: Receipt = {
   engine: 'lean-process',
+  method: 'lean-kernel',
+  scope: null,
   declaration: 'tail_bound',
   pin,
   axioms: reportAxioms([...STANDARD_AXIOMS]),
   sorryCount: 0,
-  kernelAccepted: true,
+  accepted: true,
   elapsedMs: 1800,
   heartbeats: { used: 31000, budget: 200000 },
   verifiedAt: '2026-01-01T00:00:00.000Z',
@@ -59,7 +61,7 @@ describe('isProvedWithReceipt', () => {
   });
 
   it('requires the kernel to have accepted the term', () => {
-    expect(isProvedWithReceipt({ ...receipt, kernelAccepted: false })).toBe(false);
+    expect(isProvedWithReceipt({ ...receipt, accepted: false })).toBe(false);
   });
 
   it('requires zero sorries', () => {
@@ -88,6 +90,15 @@ describe('isReceiptCurrent', () => {
 
   it('is false after a Mathlib bump', () => {
     expect(isReceiptCurrent(receipt, { ...pin, mathlibRev: 'newrev0000' })).toBe(false);
+  });
+
+  it('keeps an exhaustion result current through a Mathlib bump, and with no pin at all', () => {
+    // Exhaustion is arithmetic over a finite space. It does not rest on the
+    // library, so marking it stale would be noise — and noise in the stale
+    // marker is how a genuinely stale proof gets ignored.
+    const exhausted = { ...receipt, method: 'exhaustion' as const, engine: 'exhaustive-search' as const };
+    expect(isReceiptCurrent(exhausted, { ...pin, mathlibRev: 'newrev0000' })).toBe(true);
+    expect(isReceiptCurrent(exhausted, null)).toBe(true);
   });
 });
 

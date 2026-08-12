@@ -11,7 +11,7 @@
 import type { ClaimId, GapId, StepId } from './ids.js';
 import type { Gap, ProofStep, StepStatus } from './proof.js';
 import { deriveStepStatuses, proofProgress, type ProofProgress } from './proof.js';
-import type { Pin, Receipt, StalenessReason } from './receipt.js';
+import type { Pin, Receipt, StalenessReason, VerificationMethod } from './receipt.js';
 import { isProvedWithReceipt, isReceiptCurrent, stalenessReasons } from './receipt.js';
 import type { Statement } from './statement.js';
 import { emptyStatement } from './statement.js';
@@ -86,6 +86,10 @@ export interface ClaimView {
   /** True when the result stands but the trusted base is larger than standard. */
   readonly trustsCompiler: boolean;
   readonly customAxioms: readonly string[];
+  /** Which authority decided this, when one has. Never inferred. */
+  readonly method: VerificationMethod | null;
+  /** For an exhaustion result, exactly what was covered. */
+  readonly scope: string | null;
 }
 
 /**
@@ -104,10 +108,14 @@ export function deriveClaimView(claim: Claim, pin: Pin | null): ClaimView {
   const sorryCount = claim.receipt?.sorryCount ?? gapCount;
 
   const axioms = claim.receipt?.axioms;
+  // A claim decided by exhaustion never enters the Lean ladder: it was not
+  // elaborated and no kernel saw it. Rung and method are reported separately so
+  // neither can be read as the other.
+  const decidedByExhaustion = claim.receipt?.method === 'exhaustion';
   const evidence: TrustEvidence = {
     elaborates: claim.elaborates,
     sorryCount,
-    kernelAccepted: claim.receipt?.kernelAccepted ?? false,
+    kernelAccepted: (claim.receipt?.accepted ?? false) && !decidedByExhaustion,
     axioms,
   };
   const rung = classifyTrust(evidence);
@@ -120,6 +128,8 @@ export function deriveClaimView(claim: Claim, pin: Pin | null): ClaimView {
     gapCount,
     trustsCompiler: axioms?.trustsCompiler ?? false,
     customAxioms: axioms?.custom ?? [],
+    method: claim.receipt?.method ?? null,
+    scope: claim.receipt?.scope ?? null,
   };
 
   if (claim.refutation !== null) {
@@ -184,10 +194,19 @@ function plural(n: number, word: string): string {
 }
 
 function provedSummary(claim: Claim, rung: TrustRung, evidence: TrustEvidence): string {
-  const parts = ['proved', '0 sorry'];
-  if (claim.receipt) {
-    parts.push(`kernel-checked in ${(claim.receipt.elapsedMs / 1000).toFixed(1)}s`);
+  const receipt = claim.receipt;
+
+  if (receipt?.method === 'exhaustion') {
+    // Say what was covered, every time. "Proved" on its own would invite the
+    // reader to generalise past the bound, which is precisely what this result
+    // does not license.
+    return ['proved by exhaustion', receipt.scope ?? 'finite space', `${(receipt.elapsedMs / 1000).toFixed(1)}s`]
+      .filter((part) => part.length > 0)
+      .join(' · ');
   }
+
+  const parts = ['proved', '0 sorry'];
+  if (receipt) parts.push(`kernel-checked in ${(receipt.elapsedMs / 1000).toFixed(1)}s`);
   if (rung === 6) parts.push('trusts compiler');
   else if (evidence.axioms) parts.push(plural(evidence.axioms.axioms.length, 'axiom'));
   return parts.join(' · ');

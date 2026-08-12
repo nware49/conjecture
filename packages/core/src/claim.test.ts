@@ -15,11 +15,13 @@ const pin: Pin = {
 
 const cleanReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   engine: 'lean-process',
+  method: 'lean-kernel',
+  scope: null,
   declaration: 'tail_bound',
   pin,
   axioms: reportAxioms([...STANDARD_AXIOMS]),
   sorryCount: 0,
-  kernelAccepted: true,
+  accepted: true,
   elapsedMs: 1800,
   heartbeats: { used: 31000, budget: 200000 },
   verifiedAt: '2026-01-01T00:00:00.000Z',
@@ -162,6 +164,44 @@ describe('deriveClaimView', () => {
     };
     const claim = makeClaim(asClaimId('c1'), 'Mersenne', 'mersenne', { refutation });
     expect(deriveClaimView(claim, pin).summary).toBe('refuted · p=11 · kernel-confirmed');
+  });
+
+  it('proves a bounded claim by exhaustion, and always names the scope', () => {
+    const claim = makeClaim(asClaimId('c1'), 'Collatz below 100k', 'collatz_small', {
+      steps: [makeStep(asStepId('s1'), 'exhaust the space', { kernelOk: true })],
+      receipt: cleanReceipt({
+        engine: 'exhaustive-search',
+        method: 'exhaustion',
+        scope: 'n ∈ [1, 100000] · 100,000 candidates',
+        axioms: reportAxioms([]),
+        elapsedMs: 900,
+      }),
+    });
+    const view = deriveClaimView(claim, pin);
+    expect(view.state).toBe('proved');
+    expect(view.method).toBe('exhaustion');
+    expect(view.summary).toBe('proved by exhaustion · n ∈ [1, 100000] · 100,000 candidates · 0.9s');
+    // The scope is in the summary itself, so a reader cannot lift the result
+    // out of its bound by accident.
+    expect(view.summary).toContain('100000');
+  });
+
+  it('keeps an exhaustion result off the Lean trust ladder entirely', () => {
+    const claim = makeClaim(asClaimId('c1'), 'Collatz below 100k', 'collatz_small', {
+      elaborates: true,
+      steps: [makeStep(asStepId('s1'), 'exhaust', { kernelOk: true })],
+      receipt: cleanReceipt({
+        engine: 'exhaustive-search',
+        method: 'exhaustion',
+        scope: 'n ∈ [1, 100000]',
+        axioms: reportAxioms([]),
+      }),
+    });
+    const view = deriveClaimView(claim, pin);
+    // Rung 2 — the statement elaborated, and that is all Lean ever said about
+    // it. It must never read as rung 5 "proved, standard axioms".
+    expect(view.rung).toBe(2);
+    expect(view.state).toBe('proved');
   });
 
   it('keeps every square hollow when no project is pinned', () => {
