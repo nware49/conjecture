@@ -1,0 +1,35 @@
+{
+  "name": "conjecture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Conjecture for Claude — a proof workspace where Claude proposes and Lean decides.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/lean",
+    "packages/refute",
+    "packages/server",
+    "packages/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc --build --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "npm run dev --workspace @conjecture/server & npm run dev --workspace @conjecture/web",
+    "dev:server": "npm run dev --workspace @conjecture/server",
+    "dev:web": "npm run dev --workspace @conjecture/web",
+    "start": "npm run start --workspace @conjecture/server",
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo packages/web/dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@conjecture/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP API and workspace store for Conjecture.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "conjecture": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "node --watch --experimental-strip-types src/cli.ts",
+    "start": "node dist/cli.js",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@conjecture/core": "1.0.0",
+    "@conjecture/lean": "1.0.0",
+    "@conjecture/refute": "1.0.0"
+  }
+}

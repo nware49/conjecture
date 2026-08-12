@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/lean" },
+    { "path": "./packages/refute" },
+    { "path": "./packages/server" },
+    { "path": "./packages/web" }
+  ]
+}
