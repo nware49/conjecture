@@ -31,7 +31,14 @@ export const EXAMPLES: readonly Example[] = [
     expect: 'witness',
     note: 'Holds for n = 0 … 39 and fails at n = 40, where the value is 41². The classic demonstration that checking the first forty cases proves nothing.',
     request: {
-      definitions: 'p(n) = n ^ 2 + n + 41',
+      definitions: [
+        'p(n) = n ^ 2 + n + 41',
+        '-- the genuine least factor, by trial division',
+        'lfFrom(m, d) when d * d > m = m',
+        'lfFrom(m, d) when m % d == 0 = d',
+        'lfFrom(m, d) = lfFrom(m, d + 1)',
+        'leastFactor(m) = lfFrom(m, 2)',
+      ].join('\n'),
       predicate: 'isPrime(p(n))',
       variables: [{ name: 'n', from: 0n, to: 1_000_000n }],
       strategy: 'enumerate',
@@ -39,7 +46,7 @@ export const EXAMPLES: readonly Example[] = [
       maxCandidates: 1_000_000,
       report: [
         { label: 'n² + n + 41', expr: 'p(n)' },
-        { label: 'least factor', expr: 'if isPrime(p(n)) then p(n) else isqrt(p(n))' },
+        { label: 'least factor', expr: 'leastFactor(p(n))' },
       ],
     },
   },

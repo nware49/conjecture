@@ -1,0 +1,126 @@
+/*
+ * Design tokens.
+ *
+ * The accent is the yellow of the Springer graduate texts on every
+ * mathematician's shelf, and it means one thing: this has been verified.
+ * Red means killed by a witness. Everything else is ink, slate and rule —
+ * the page furniture of a printed proof.
+ */
+
+:root {
+  --ink: #14161c;
+  --ink-2: #2a2f3a;
+  --slate: #616a7b;
+  --slate-2: #8a93a3;
+  --rule: #d5d9df;
+  --rule-2: #e7eaee;
+  --paper: #edeff2;
+  --surface: #fcfcfd;
+  --surface-2: #f7f8fa;
+
+  --proved: #f2b807;
+  --proved-deep: #b98c00;
+  --proved-wash: #fffbf0;
+  --refuted: #bf3b2b;
+  --refuted-wash: #fff8f7;
+  --open: #9aa3b2;
+
+  --serif: 'Newsreader', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --gut: clamp(16px, 3vw, 40px);
+  --bar-h: 44px;
+  --foot-h: 34px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--proved);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Statements are set in serif italic everywhere. That split is load-bearing:
+   if it is italic serif, a machine checked it or is about to. */
+.stmt {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--slate-2);
+  margin: 0 0 8px;
+}
+
+.meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--slate);
+  letter-spacing: 0.02em;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: #e3e6eb;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border: 3px solid var(--paper);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--slate-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
