@@ -365,6 +365,32 @@ describe('the graph endpoint', () => {
   });
 });
 
+describe('serving the client', () => {
+  it('says the client is not built instead of 404ing the page', async () => {
+    const withClient = createServer(
+      createApp({ service, runner, clientDir: '/definitely/not/built' }),
+    );
+    await new Promise<void>((r) => withClient.listen(0, '127.0.0.1', r));
+    const address = withClient.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/`);
+    const body = await response.text();
+
+    // 503, not 404: the API is up, the asset is missing.
+    expect(response.status).toBe(503);
+    expect(body).toContain('has not been built');
+    expect(body).toContain('npm run build');
+    expect(body).toContain('/definitely/not/built');
+
+    // The API still answers while the client is missing.
+    const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+    expect(health.status).toBe(200);
+
+    await new Promise<void>((r) => withClient.close(() => r()));
+  });
+});
+
 describe('errors and routing', () => {
   it('405s a known path with the wrong method', async () => {
     expect((await api('/api/workspace', { method: 'DELETE' })).status).toBe(405);

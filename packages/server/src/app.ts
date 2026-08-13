@@ -312,12 +312,63 @@ function clampNumber(raw: unknown, min: number, max: number, fallback: number): 
   return Math.min(max, Math.max(min, Math.floor(value)));
 }
 
+/**
+ * Has the client actually been built? Checked before serving so a missing
+ * build reports itself instead of looking like a routing bug.
+ */
+export async function clientIsBuilt(root: string): Promise<boolean> {
+  try {
+    await stat(join(root, 'index.html'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const NOT_BUILT_MESSAGE = 'The web client has not been built.';
+
+function sendNotBuilt(res: ServerResponse, root: string): void {
+  // A bare 404 here sent at least one person hunting through the router. The
+  // API is fine; the asset is missing, and the fix is one command.
+  const body = `<!doctype html>
+<meta charset="utf-8">
+<title>Conjecture — client not built</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; margin: 12vh auto; max-width: 46rem; padding: 0 1.5rem; color: #14161C; }
+  code { background: #EDEFF2; padding: 2px 6px; font-family: ui-monospace, monospace; }
+  pre { background: #F7F8FA; border: 1px solid #D5D9DF; padding: 12px 14px; overflow-x: auto; }
+  .m { color: #616A7B; font-size: 13px; }
+</style>
+<h1>The web client has not been built.</h1>
+<p>The API is running and answering on <code>/api/health</code>. There is just nothing to serve at this path yet.</p>
+<pre>npm run build</pre>
+<p>Then reload. For hot reload while developing, run <code>npm run dev</code> and open the client on its own port instead.</p>
+<p class="m">Looked for <code>index.html</code> in ${escapeHtml(root)}</p>`;
+
+  res.writeHead(503, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+  res.end(body);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"]/g, (ch) =>
+    ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : '&quot;',
+  );
+}
+
 async function serveStatic(
   root: string,
   req: IncomingMessage,
   res: ServerResponse,
   url: URL,
 ): Promise<void> {
+  if (!(await clientIsBuilt(root))) {
+    sendNotBuilt(res, root);
+    return;
+  }
+
   // Resolve inside the client directory and refuse anything that escapes it.
   const requested = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
   let filePath = join(root, requested);

@@ -34,6 +34,23 @@ npm run verify          # typecheck, test, build
 npm start               # http://127.0.0.1:4319
 ```
 
+`npm start` serves the client that `npm run build` produced, so the build has to
+succeed first. If it has not, the browser shows a notice saying exactly that
+rather than the app.
+
+If `npm install` leaves you with type errors inside `node_modules/@types/node`
+(`TS1010: '*/' expected` is the usual shape), the install is corrupt rather than
+the code being wrong. Delete `node_modules` and reinstall:
+
+```bash
+rm -rf node_modules packages/*/node_modules
+npm ci
+```
+
+Avoid `npm audit fix --force`. It upgrades across major versions without asking
+and has produced exactly that broken tree here before. The committed lockfile
+audits clean.
+
 The first run seeds a library by actually running the searches, so what you see
 is computed rather than staged: Euler's polynomial falls at n = 40, the Mersenne
 claim at p = 11, Collatz below 100,000 is decided by exhaustion, and Pólya's
