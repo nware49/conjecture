@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createApp } from './app.js';
+import { clientIsBuilt, createApp } from './app.js';
 import { SearchRunner } from './search-runner.js';
 import { seedWorkspace } from './seed.js';
 import { ConjectureService } from './service.js';
@@ -103,10 +103,40 @@ async function main(): Promise<void> {
 
   const server = createServer(createApp({ service, runner, clientDir: options.clientDir }));
 
+  // A port clash is an ordinary thing to hit twice in a morning. It deserves a
+  // sentence, not an unhandled 'error' event and a Node stack trace.
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      process.stderr.write(
+        `Port ${options.port} is already in use, most likely by another Conjecture.\n` +
+          `Stop that one, or start this on a different port: npm start -- --port ${options.port + 1}\n`,
+      );
+    } else if (error.code === 'EACCES') {
+      process.stderr.write(
+        `Not allowed to bind ${options.host}:${options.port}. Ports below 1024 usually need elevated privileges.\n`,
+      );
+    } else {
+      process.stderr.write(`${error.message}\n`);
+    }
+    process.exit(1);
+  });
+
+  const built = await clientIsBuilt(options.clientDir);
+
   server.listen(options.port, options.host, () => {
     process.stdout.write(`Conjecture 1.0.0 listening on http://${options.host}:${options.port}\n`);
     process.stdout.write(`  workspace  ${join(options.dataDir, 'workspace.json')}\n`);
-    process.stdout.write(`  client     ${options.clientDir}\n`);
+    process.stdout.write(`  client     ${options.clientDir}${built ? '' : '  (NOT BUILT)'}\n`);
+
+    if (!built) {
+      // Printing the path and then quietly serving errors is how someone ends
+      // up debugging the router instead of running one command.
+      process.stderr.write(
+        `\nThe web client has not been built, so the browser will show a notice instead of the app.\n` +
+          `Run \`npm run build\` from the repository root, then reload.\n` +
+          `The API itself is up: try http://${options.host}:${options.port}/api/health\n\n`,
+      );
+    }
 
     if (options.seed) {
       // Seeding runs real searches, so it happens after the socket is open —
