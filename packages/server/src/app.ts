@@ -54,8 +54,22 @@ export function createApp(options: AppOptions): (req: IncomingMessage, res: Serv
 
   router.post('/api/project/connect', async ({ req, res }) => {
     const body = await readJsonBody<Record<string, unknown>>(req);
-    const root = requireString(body, 'root');
-    const result = await service.connect(resolve(root));
+
+    // Two ways in: a directory on this machine, or a Lean server elsewhere.
+    // The endpoint form installs nothing and needs no project on disk.
+    const endpoint = typeof body['endpoint'] === 'string' ? body['endpoint'].trim() : '';
+    if (endpoint.length > 0) {
+      const project = typeof body['project'] === 'string' ? body['project'] : undefined;
+      const result = await service.connectRemote(endpoint, project);
+      sendJson(res, 200, { ...result, workspace: toWorkspaceDto(await service.workspace()) });
+      return;
+    }
+
+    if (typeof body['root'] !== 'string' || body['root'].trim().length === 0) {
+      throw badRequest('Give either `root` (a directory here) or `endpoint` (a Lean server elsewhere).');
+    }
+
+    const result = await service.connect(resolve(requireString(body, 'root')));
     sendJson(res, 200, { ...result, workspace: toWorkspaceDto(await service.workspace()) });
   });
 

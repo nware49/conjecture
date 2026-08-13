@@ -34,6 +34,12 @@ export function WorkspaceScreen(): JSX.Element {
 
   return (
     <>
+      {workspace?.pinCaveat && (
+        <div className="banner banner--warn" style={{ borderRadius: 0, borderWidth: '0 0 1px' }}>
+          <Mark state="partial" fill={0.5} size={14} />
+          <span>{workspace.pinCaveat}</span>
+        </div>
+      )}
       <div className="cols">
         <Library />
         {selected ? (

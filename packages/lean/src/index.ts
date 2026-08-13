@@ -5,3 +5,7 @@ export * from './engine.js';
 export * from './runner.js';
 export * from './process-engine.js';
 export * from './connect.js';
+export * from './lsp/jsonrpc.js';
+export * from './lsp/transport.js';
+export * from './lsp/client.js';
+export * from './remote-engine.js';

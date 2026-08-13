@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientIsBuilt, createApp } from './app.js';
+import { probeEndpoint } from './probe.js';
 import { SearchRunner } from './search-runner.js';
 import { seedWorkspace } from './seed.js';
 import { ConjectureService } from './service.js';
@@ -15,6 +16,8 @@ interface Options {
   clientDir: string;
   seed: boolean;
   project: string | null;
+  leanEndpoint: string | null;
+  leanProject: string | null;
 }
 
 function parseArgs(argv: readonly string[]): Options {
@@ -26,6 +29,8 @@ function parseArgs(argv: readonly string[]): Options {
     clientDir: process.env['CONJECTURE_CLIENT'] ?? resolve(here, '../../web/dist'),
     seed: true,
     project: null,
+    leanEndpoint: process.env['CONJECTURE_LEAN_ENDPOINT'] ?? null,
+    leanProject: process.env['CONJECTURE_LEAN_PROJECT'] ?? null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -51,6 +56,12 @@ function parseArgs(argv: readonly string[]): Options {
         break;
       case '--project':
         options.project = resolve(next());
+        break;
+      case '--lean-endpoint':
+        options.leanEndpoint = next();
+        break;
+      case '--lean-project':
+        options.leanProject = next();
         break;
       case '--no-seed':
         options.seed = false;
@@ -78,22 +89,50 @@ function printHelp(): void {
       '  --host <addr>     Address to bind (default 127.0.0.1)',
       '  --data <dir>      Where the workspace file lives (default ./.conjecture)',
       '  --client <dir>    Built web client to serve',
-      '  --project <dir>   Connect this Lean project on startup',
+      '  --project <dir>   Connect a Lean project on this machine at startup',
+      '  --lean-endpoint <url>',
+      '                    Use a Lean server elsewhere. Nothing is installed here.',
+      '                    Accepts https://host (becomes wss://host/websocket/<project>)',
+      '                    or an explicit wss:// URL.',
+      '  --lean-project <name>',
+      '                    Project served by that endpoint (default mathlib)',
       '  --no-seed         Start with an empty library',
+      '',
+      'Commands:',
+      '  probe <url>       Check a Lean endpoint and report what it can actually do',
       '',
     ].join('\n'),
   );
 }
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+
+  if (argv[0] === 'probe') {
+    const endpoint = argv[1];
+    if (!endpoint) throw new Error('probe needs an endpoint, e.g. conjecture probe https://lean.example.org');
+    const report = await probeEndpoint(endpoint, argv[2]);
+    process.stdout.write(`${report.lines.join('\n')}\n`);
+    process.exit(report.ok ? 0 : 1);
+  }
+
+  const options = parseArgs(argv);
 
   const service = await ConjectureService.open({
     repository: JsonFileRepository.inDirectory(options.dataDir),
   });
   const runner = new SearchRunner();
 
-  if (options.project) {
+  if (options.leanEndpoint) {
+    const result = await service.connectRemote(
+      options.leanEndpoint,
+      options.leanProject ?? undefined,
+    );
+    const health = result.health;
+    process.stdout.write(
+      `lean endpoint ${options.leanEndpoint}: ${health.status === 'unavailable' ? health.reason : health.detail}\n`,
+    );
+  } else if (options.project) {
     const result = await service.connect(options.project);
     const health = result.health;
     process.stdout.write(

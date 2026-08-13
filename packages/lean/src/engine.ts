@@ -44,7 +44,7 @@ export interface EngineError {
 }
 
 export interface LeanEngine {
-  readonly kind: 'lean-process' | 'unavailable';
+  readonly kind: 'lean-process' | 'lean-remote' | 'unavailable';
   health(): Promise<EngineHealth>;
   elaborate(request: ElaborateRequest): Promise<ElaborationResult | EngineError>;
   dispose(): Promise<void>;
