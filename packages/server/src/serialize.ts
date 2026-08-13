@@ -20,6 +20,7 @@ import {
   type Project,
   type Workspace,
   libraryCounts,
+  pinCaveat,
   pinLabel,
   verificationBlockedReason,
   canVerify,
@@ -147,11 +148,14 @@ export interface WorkspaceDto {
   counts: ReturnType<typeof libraryCounts>;
   canVerify: boolean;
   blockedReason: string | null;
+  /** What this pin cannot see. Non-null for a remote endpoint. */
+  pinCaveat: string | null;
 }
 
 export function toWorkspaceDto(workspace: Workspace): WorkspaceDto {
   const pin = workspace.project?.pin ?? null;
   return {
+    pinCaveat: pinCaveat(workspace.project),
     project: workspace.project
       ? { ...workspace.project, pinLabel: pinLabel(pin) }
       : null,

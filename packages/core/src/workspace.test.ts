@@ -80,6 +80,22 @@ describe('the empty-state rule', () => {
     expect(verificationBlockedReason(noProject)).toContain('No project connected');
   });
 
+  it('reports the endpoint that failed rather than the generic empty state', () => {
+    // A remote connect that could not reach its server leaves no project, but
+    // the useful sentence is the one naming the endpoint.
+    const failedRemote: Workspace = {
+      project: null,
+      claims: [],
+      engine: {
+        status: 'unavailable',
+        kind: 'lean-remote',
+        reason: 'Could not reach a Lean server at wss://lean.example.org/websocket/mathlib.',
+      },
+    };
+    expect(canVerify(failedRemote)).toBe(false);
+    expect(verificationBlockedReason(failedRemote)).toContain('lean.example.org');
+  });
+
   it('will not verify when the engine is missing, even with a project pinned', () => {
     const ws: Workspace = {
       project,

@@ -1,0 +1,53 @@
+# Conjecture plus a Lean endpoint, on one machine, with nothing installed on
+# yours beyond Docker.
+#
+#   docker compose -f deploy/lean-endpoint/compose.yaml up --build
+#
+# The first build fetches a Mathlib cache and takes a while. After that the
+# image is warm and the endpoint starts in seconds.
+
+services:
+  lean:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Both of these end up inside every receipt this endpoint produces.
+        LEAN_VERSION: '4.9.0'
+        MATHLIB_REV: 'master'
+    # Elaborating against Mathlib is memory-hungry. Below about 4 GB the server
+    # gets killed mid-check, which looks like an unexplained timeout.
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+    ports:
+      - '8080:8080'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/']
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  conjecture:
+    build:
+      context: ../..
+      dockerfile: deploy/lean-endpoint/app.Dockerfile
+    environment:
+      HOST: '0.0.0.0'
+      PORT: '4319'
+      # Inside the compose network the endpoint is plain ws, not wss.
+      CONJECTURE_LEAN_ENDPOINT: 'http://lean:8080'
+      CONJECTURE_LEAN_PROJECT: 'mathlib'
+      CONJECTURE_DATA: '/data'
+    volumes:
+      - workspace:/data
+    ports:
+      - '4319:4319'
+    depends_on:
+      lean:
+        condition: service_healthy
+
+volumes:
+  workspace:

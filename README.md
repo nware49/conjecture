@@ -56,11 +56,29 @@ is computed rather than staged: Euler's polynomial falls at n = 40, the Mersenne
 claim at p = 11, Collatz below 100,000 is decided by exhaustion, and Pólya's
 search finds nothing and leaves its claim exactly where it was.
 
-To connect a real Lean project:
+To connect Lean without installing it, point the app at a Lean server running
+somewhere else:
+
+```bash
+npm start -- --lean-endpoint https://lean.example.org
+
+# check what an endpoint can actually do before trusting it
+node packages/server/dist/cli.js probe https://lean.example.org
+
+# or run your own endpoint and the app together
+docker compose -f deploy/lean-endpoint/compose.yaml up --build
+```
+
+Or connect a Lean project on this machine:
 
 ```bash
 npm start -- --project /path/to/your/lean/project
 ```
+
+A remote endpoint reports its Lean version but nothing about the library it was
+built against, so a Mathlib bump on the server cannot be detected from here. The
+app says so on the connect screen and in the workspace. See
+[docs/remote-lean.md](docs/remote-lean.md).
 
 With no Lean toolchain on `PATH`, the library still opens. You can state claims
 and search them for counterexamples; you just cannot prove any, and every square
@@ -111,7 +129,8 @@ packages/
   core     domain model — claims, the trust ladder, receipts, dependency
            graphs. Pure: no I/O, no framework, no clock it does not own.
   lean     the Lean bridge — toolchain detection, elaboration over
-           `lake env lean --json`, diagnostics and #print axioms parsing.
+           `lake env lean --json` locally or LSP-over-WebSocket to a server
+           elsewhere, diagnostics and #print axioms parsing.
   refute   counterexample search — a small definition language over BigInt,
            with memoised recurrences and no eval() anywhere.
   server   HTTP API, workspace store, live search progress over SSE.

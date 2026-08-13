@@ -24,13 +24,19 @@ const MARK_FOR: Record<Step['state'], 'proved' | 'partial' | 'refuted' | 'open'>
   skipped: 'open',
 };
 
+type Mode = 'remote' | 'local';
+
 export function ConnectScreen(): JSX.Element {
   const { workspace, run, notify } = useStore();
+  const [mode, setMode] = useState<Mode>('remote');
   const [root, setRoot] = useState('');
+  const [endpoint, setEndpoint] = useState('');
   const [steps, setSteps] = useState<Step[] | null>(null);
 
   const connect = async (): Promise<void> => {
-    const result = await run('Connecting the project', () => api.connect(root.trim()));
+    const result = await run('Connecting Lean', () =>
+      mode === 'remote' ? api.connectEndpoint(endpoint.trim()) : api.connect(root.trim()),
+    );
     if (!result) return;
     setSteps(result.steps as Step[]);
     const health = result.workspace.engine;
@@ -41,6 +47,7 @@ export function ConnectScreen(): JSX.Element {
   };
 
   const project = workspace?.project;
+  const ready = mode === 'remote' ? endpoint.trim().length > 0 : root.trim().length > 0;
 
   return (
     <div className="page">
@@ -57,20 +64,66 @@ export function ConnectScreen(): JSX.Element {
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 20 }}>
           <div>
             <p className="lbl">Source</p>
+            <div className="tabs">
+              <button
+                type="button"
+                className={`tab ${mode === 'remote' ? 'tab--on' : ''}`}
+                onClick={() => setMode('remote')}
+              >
+                Lean server elsewhere
+              </button>
+              <button
+                type="button"
+                className={`tab ${mode === 'local' ? 'tab--on' : ''}`}
+                onClick={() => setMode('local')}
+              >
+                Project on this machine
+              </button>
+            </div>
+
             <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="field field--mono"
-                placeholder="/path/to/your/lean/project"
-                value={root}
-                onChange={(event) => setRoot(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void connect();
-                }}
-              />
-              <button className="btn" type="button" onClick={() => void connect()} disabled={!root.trim()}>
+              {mode === 'remote' ? (
+                <input
+                  className="field field--mono"
+                  placeholder="https://lean.example.org"
+                  value={endpoint}
+                  onChange={(event) => setEndpoint(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void connect();
+                  }}
+                />
+              ) : (
+                <input
+                  className="field field--mono"
+                  placeholder="/path/to/your/lean/project"
+                  value={root}
+                  onChange={(event) => setRoot(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void connect();
+                  }}
+                />
+              )}
+              <button className="btn" type="button" onClick={() => void connect()} disabled={!ready}>
                 Connect
               </button>
             </div>
+
+            <p className="meta" style={{ marginTop: 6, lineHeight: 1.6 }}>
+              {mode === 'remote'
+                ? 'Nothing is installed here. https://host becomes wss://host/websocket/mathlib; an explicit wss:// URL is used as given.'
+                : 'The toolchain is read from lean-toolchain in that directory and displayed, never chosen for you.'}
+            </p>
+
+            {mode === 'remote' && (
+              <div className="banner banner--warn" style={{ marginTop: 10 }}>
+                <Mark state="partial" fill={0.5} size={14} />
+                <span>
+                  A remote endpoint reports its Lean version and nothing about the library it was
+                  built against, so a Mathlib bump on the server cannot be detected from here and
+                  results proved against the old library keep showing as proved.
+                </span>
+              </div>
+            )}
 
             {project && (
               <>

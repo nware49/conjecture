@@ -59,7 +59,7 @@ export const METHOD_LABEL: Readonly<Record<VerificationMethod, string>> = {
  * treated as unverified — that rule is enforced in {@link isProvedWithReceipt}.
  */
 export interface Receipt {
-  readonly engine: 'lean-process' | 'lean-lsp' | 'exhaustive-search';
+  readonly engine: 'lean-process' | 'lean-remote' | 'exhaustive-search';
   readonly method: VerificationMethod;
   /**
    * For exhaustion, exactly what was covered, e.g. "n ∈ [1, 100000] · 100,000

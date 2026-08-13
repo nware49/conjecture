@@ -38,8 +38,11 @@ import {
   connectProject,
   findSorries,
   isEngineError,
+  RemoteLeanEngine,
   UnavailableLeanEngine,
+  type ConnectStep,
   type LeanEngine,
+  type RemoteEngineOptions,
 } from '@conjecture/lean';
 import type { SearchOutcome, SearchRequest } from '@conjecture/refute';
 import { notFound, badRequest } from './http.js';
@@ -77,6 +80,8 @@ export interface ServiceOptions {
   readonly repository: Repository;
   /** Injected so tests can drive a fake toolchain. */
   readonly connect?: typeof connectProject;
+  /** Injected so tests can drive a fake Lean endpoint without a network. */
+  readonly remoteTransport?: RemoteEngineOptions['transportFactory'];
   readonly now?: () => Date;
 }
 
@@ -85,6 +90,7 @@ export class ConjectureService {
   private engine: LeanEngine = new UnavailableLeanEngine(NO_ENGINE_REASON);
   private readonly now: () => Date;
   private readonly connectImpl: typeof connectProject;
+  private readonly remoteTransport: RemoteEngineOptions['transportFactory'];
 
   private constructor(
     private readonly repository: Repository,
@@ -94,6 +100,7 @@ export class ConjectureService {
     this.state = state;
     this.now = options.now ?? (() => new Date());
     this.connectImpl = options.connect ?? connectProject;
+    this.remoteTransport = options.remoteTransport;
   }
 
   static async open(options: ServiceOptions): Promise<ConjectureService> {
@@ -154,8 +161,82 @@ export class ConjectureService {
     return { project, steps: result.steps, health: result.health };
   }
 
+  /**
+   * Attach a Lean server running somewhere else.
+   *
+   * Nothing is installed locally and there is no project on disk. The endpoint
+   * supplies the toolchain, and it becomes part of the pin — two servers on the
+   * same Lean version are not interchangeable.
+   */
+  async connectRemote(
+    endpoint: string,
+    project?: string,
+  ): Promise<{ project: Project | null; steps: ConnectStep[]; health: EngineHealth }> {
+    const engine = new RemoteLeanEngine({
+      endpoint,
+      ...(project ? { project } : {}),
+      ...(this.remoteTransport ? { transportFactory: this.remoteTransport } : {}),
+    });
+
+    const health = await engine.health();
+    const pin = await engine.describePin(this.now);
+    this.engine = engine;
+
+    const steps: ConnectStep[] = [
+      {
+        label: 'Endpoint',
+        state: health.status === 'ready' ? 'ok' : 'failed',
+        detail: engine.endpointUrl,
+      },
+      {
+        label: 'Lean server',
+        state: health.status === 'ready' ? 'ok' : 'failed',
+        detail: health.status === 'unavailable' ? health.reason : health.detail,
+      },
+      {
+        label: 'Toolchain',
+        state: pin === null ? 'failed' : 'ok',
+        detail: pin?.toolchain ?? 'the endpoint did not report a Lean version',
+      },
+      {
+        label: 'Library revision',
+        // Not a failure — a limit, and one worth seeing on the way in.
+        state: 'partial',
+        detail: 'not reported by this endpoint; staleness cannot be detected on a library bump',
+      },
+    ];
+
+    const record: Project | null =
+      pin === null
+        ? null
+        : {
+            id: asProjectId(randomUUID()),
+            name: hostOf(engine.endpointUrl),
+            root: engine.endpointUrl,
+            source: {
+              kind: 'remote',
+              endpoint: engine.endpointUrl,
+              project: project ?? 'mathlib',
+            },
+            pin,
+            inheritedSorries: 0,
+            limits: { maxHeartbeats: 200_000, elaborationTimeoutMs: 120_000 },
+          };
+
+    await this.mutate((state) => ({ ...state, project: record }));
+    return { project: record, steps, health };
+  }
+
   /** Re-attach an engine to a project already recorded in the workspace. */
   private async reconnect(root: string): Promise<void> {
+    const source = this.state.project?.source;
+    if (source?.kind === 'remote') {
+      // Reattaching is a fresh probe: the endpoint may have moved to a new
+      // Lean since we last spoke to it, which is exactly what turns receipts
+      // stale.
+      await this.connectRemote(source.endpoint, source.project);
+      return;
+    }
     try {
       const result = await this.connectImpl({ root });
       this.engine = result.engine;
@@ -293,7 +374,7 @@ export class ConjectureService {
       pin === null
         ? null
         : {
-            engine: 'lean-process',
+            engine: this.engine.kind === 'lean-remote' ? 'lean-remote' : 'lean-process',
             method: 'lean-kernel',
             scope: null,
             declaration: claim.declaration,
@@ -465,4 +546,14 @@ function describeScope(request: SearchRequest, candidates: number): string {
     .map((v) => `${v.name} ∈ [${v.from}, ${v.to}]`)
     .join(', ');
   return `${ranges} · ${candidates.toLocaleString('en-US')} candidates`;
+}
+
+/** Host and path of an endpoint, for the project's display name. */
+function hostOf(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.host}${parsed.pathname === '/' ? '' : parsed.pathname}`;
+  } catch {
+    return url;
+  }
 }

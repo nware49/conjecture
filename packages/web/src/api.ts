@@ -101,6 +101,8 @@ export interface Workspace {
   };
   canVerify: boolean;
   blockedReason: string | null;
+  /** What a remote pin cannot see. Null for a local project. */
+  pinCaveat: string | null;
 }
 
 export interface TraceRow {
@@ -230,6 +232,15 @@ export const api = {
 
   connect: (root: string): Promise<{ workspace: Workspace; steps: unknown }> =>
     request('/project/connect', { method: 'POST', body: JSON.stringify({ root }) }),
+
+  connectEndpoint: (
+    endpoint: string,
+    project?: string,
+  ): Promise<{ workspace: Workspace; steps: unknown }> =>
+    request('/project/connect', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint, ...(project ? { project } : {}) }),
+    }),
 
   disconnect: (): Promise<Workspace> => request('/project/disconnect', { method: 'POST' }),
 };
